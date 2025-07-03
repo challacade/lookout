@@ -5,10 +5,19 @@ local lookout = {
     _DESCRIPTION = "Parallax logic with multiple moving layers",
 }
 
-function lookout:newView(newLayerData)
+function lookout:newView(newLayerData, args)
     local view = {}
     view.x = 0 -- view perspective position
     view.y = 0 -- view perspective position
+
+    view.spoofX = 0 -- automatic movement of the view position
+    view.spoofY = 0 -- automatic movement of the view position
+
+    if args then
+        for k, v in pairs(args) do
+            view[k] = v -- set any additional properties from args
+        end
+    end
 
     function view:reset()
         view.layers = {}
@@ -32,14 +41,13 @@ function lookout:newView(newLayerData)
         -- NOTE: any property can be overridden by passing it in args
         local layer = {}
         layer.img = img -- image to draw
+        layer.x = 0 -- position of the layer, call update to set properly
+        layer.y = 0 -- position of the layer
         layer.scale = 1
         layer.alpha = 1
         layer.drawSides = true -- draw duplicates on left and right
         layer.drawVertical = true -- draw duplicates on top and bottom
-
-        -- Position of the layer perspective
-        layer.x = 0
-        layer.y = 0
+        layer.view = view -- reference to the view this layer belongs to
 
         -- Stores the position of the view in the previous frame
         layer.oldViewX = 0
@@ -49,16 +57,16 @@ function lookout:newView(newLayerData)
         layer.relX = 0
         layer.relY = 0
 
-        -- Automatic background movement
-        layer.spoofX = 0
-        layer.spoofY = 0
-
         -- Number of pixels the view position has to move before the layer moves
-        layer.speed = 3
+        layer.depth = 3
 
         -- Manual offset of the layer
         layer.offX = 0
         layer.offY = 0
+
+        -- automatic movement of the layer
+        layer.spoofX = 0
+        layer.spoofY = 0
 
         if args then for k,v in pairs(args) do layer[k] = v end end
 
@@ -69,35 +77,32 @@ function lookout:newView(newLayerData)
 
         -- TODO: verify you can pass an anim8 anim, adjust above values for it
 
-        function layer:update(dt, x, y) -- calculate parallax positioning
-            local viewX, viewY = x, y
-            if not x then viewX = self.x end
-            if not y then viewY = self.y end
-
+        function layer:update(dt) -- calculate parallax positioning
             if layer.anim then layer.anim:update(dt) end
 
-            -- IMPORTANT, set layer.x and layer.y before spoofing viewX viewY
-            layer.x = viewX
-            layer.y = viewY
+            if layer.view.spoofX ~= 0 then layer.spoofX = layer.spoofX + layer.view.spoofX * dt end
+            if layer.view.spoofY ~= 0 then layer.spoofY = layer.spoofY + layer.view.spoofY * dt end
 
-            -- spoof is an automatic movement of the view position
-            viewX = viewX + layer.spoofX*dt
-            viewY = viewY + layer.spoofY*dt
+            local vpx, vpy = layer.view:getPosition() -- get the view position
+            layer.x, layer.y = vpx, vpy
 
-            local diffX = viewX - layer.oldViewX
-            local diffY = viewY - layer.oldViewY
+            vpx = vpx + layer.spoofX -- apply spoofing to the view position
+            vpy = vpy + layer.spoofY
 
-            if not layer.fixedX then layer.relX = layer.relX - (diffX / layer.speed) end
-            if not layer.fixedY then layer.relY = layer.relY - (diffY / layer.speed) end
+            local diffX = vpx - layer.oldViewX
+            local diffY = vpy - layer.oldViewY
 
-            if layer.relX < -1 * layer.baseWidth then layer.relX = layer.relX + layer.width end
-            if layer.relX > layer.baseWidth then layer.relX = layer.relX - layer.width end
+            if not layer.fixedX then layer.relX = layer.relX - (diffX / layer.depth) end
+            if not layer.fixedY then layer.relY = layer.relY - (diffY / layer.depth) end
 
-            if layer.relY < -1 * layer.height then layer.relY = layer.relY + layer.baseHeight * layer.scale end
-            if layer.relY > layer.height then layer.relY = layer.relY - layer.baseHeight * layer.scale end
+            if layer.relX < -1 * layer.width then layer.relX = layer.relX + layer.width end
+            if layer.relX > layer.width then layer.relX = layer.relX - layer.width end
 
-            layer.oldViewX = viewX
-            layer.oldViewY = viewY
+            if layer.relY < -1 * layer.height then layer.relY = layer.relY + layer.height end
+            if layer.relY > layer.height then layer.relY = layer.relY - layer.height end
+
+            layer.oldViewX = vpx
+            layer.oldViewY = vpy
         end
         
         function layer:reset()
@@ -115,14 +120,17 @@ function lookout:newView(newLayerData)
 
             for i=-1, 2 do
                 if self.drawVertical or i == 0 then
-                    love.graphics.draw(self.img, layer.x + (layer.relX * self.scale) + (layer.offX * self.scale) + (0 * imgW), layer.y + layer.relY + (layer.offY * self.scale) + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2)
-                    if self.drawSides then love.graphics.draw(self.img, layer.x + (layer.relX * self.scale) + (layer.offX * self.scale) + (1 * imgW), layer.y + layer.relY + (layer.offY * self.scale) + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2) end
-                    if self.drawSides then love.graphics.draw(self.img, layer.x + (layer.relX * self.scale) + (layer.offX * self.scale) + (-1 * imgW), layer.y + layer.relY + (layer.offY * self.scale) + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2) end
+                    local lx = layer.x + (layer.relX * self.scale) + (layer.offX * self.scale)
+                    local ly = layer.y + (layer.relY * self.scale) + (layer.offY * self.scale)
+
+                    love.graphics.draw(self.img, lx + (0 * imgW), ly + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2)
+                    if self.drawSides then love.graphics.draw(self.img, lx + (1 * imgW), ly + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2) end
+                    if self.drawSides then love.graphics.draw(self.img, lx + (-1 * imgW), ly + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2) end
                 end
             end      
         end
 
-        table.insert(layers, layer)
+        table.insert(view.layers, layer)
     end
 
     function view:setScale(scale)
@@ -141,8 +149,25 @@ function lookout:newView(newLayerData)
         -- NOTE: call view:update and view:draw to see the changes
     end
 
+    function view:getPosition()
+        return view.x, view.y
+    end
+
+    function view:setSpoofDir(x, y)
+        if x then view.spoofX = x end
+        if y then view.spoofY = y end
+        -- NOTE: call view:update and view:draw to see the changes
+    end
+
+    function view:getNormalizedSpoofDir()
+        local len = math.sqrt(view.spoofX^2 + view.spoofY^2)
+        if len == 0 then return 0, 0 end
+        return view.spoofX / len, view.spoofY / len
+    end
+
     function view:update(dt, x, y)
         view:setPosition(x, y)
+
         for i, layer in ipairs(view.layers) do
             layer:update(dt, view.x, view.y)
         end
@@ -173,3 +198,5 @@ function lookout:newView(newLayerData)
 
     return view
 end
+
+return lookout
