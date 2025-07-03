@@ -1,4 +1,4 @@
--- This project can be run as a Love2D game, where this file is the main entry point.
+-- This project can be run as a Love2D game, where main.lua is the entry point.
 function love.load()
     local images = {}
     images.far = love.graphics.newImage("stars/far.png")

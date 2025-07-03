@@ -8,16 +8,12 @@ local lookout = {
 function lookout:newView(newLayerData, args)
     local view = {}
     view.x = 0 -- view perspective position
-    view.y = 0 -- view perspective position
-
+    view.y = 0
     view.spoofX = 0 -- automatic movement of the view position
-    view.spoofY = 0 -- automatic movement of the view position
+    view.spoofY = 0
 
-    if args then
-        for k, v in pairs(args) do
-            view[k] = v -- set any additional properties from args
-        end
-    end
+    -- any additional properties you would like to set on the view
+    if args then for k, v in pairs(args) do view[k] = v end end
 
     function view:reset()
         view.layers = {}
@@ -140,23 +136,21 @@ function lookout:newView(newLayerData, args)
             layer.width = layer.baseWidth * layer.scale
             layer.height = layer.baseHeight * layer.scale
         end
-        -- NOTE: call view:update and view:draw to see the changes
     end
+    -- NOTE: call view:update and view:draw to see changes (applies to all set methods)
 
     function view:setPosition(x, y)
         if x then view.x = x end
         if y then view.y = y end
-        -- NOTE: call view:update and view:draw to see the changes
-    end
-
-    function view:getPosition()
-        return view.x, view.y
     end
 
     function view:setSpoofDir(x, y)
         if x then view.spoofX = x end
         if y then view.spoofY = y end
-        -- NOTE: call view:update and view:draw to see the changes
+    end
+
+    function view:getPosition()
+        return view.x, view.y
     end
 
     function view:getNormalizedSpoofDir()
