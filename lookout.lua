@@ -1,0 +1,165 @@
+local lookout = {
+    _LICENSE = "This software is distributed under the MIT license. See LICENSE for details.",
+    _URL = "https://github.com/challacade/lookout",
+    _VERSION = "1.0.0",
+    _DESCRIPTION = "Parallax logic with multiple moving layers",
+}
+
+function lookout:newView(newLayerData)
+    local view = {}
+    view.x = 0 -- view perspective position
+    view.y = 0 -- view perspective position
+
+    function view:reset()
+        view.layers = {}
+        view.layerData = nil
+    end
+
+    function view:addLayerData(data)
+        if not data then error("addLayerData requires a table of layers, or single layer") end
+        if type(data) ~= "table" then error("addLayerData parameter must be a table") end
+        if next(data) == nil then error("addLayerData parameter cannot be an empty table") end
+        if not data[1] then data = { data } end -- parameter is a single layer
+
+        if not self.layerData then self.layerData = {} end
+        for i, ld in ipairs(data) do table.insert(self.layerData, ld) end
+    end
+
+    function view:newLayer(img, args)
+        if not img then error("newLayer requires an image") end
+
+        -- Stores all data about the layer
+        -- NOTE: any property can be overridden by passing it in args
+        local layer = {}
+        layer.img = img -- image to draw
+        layer.scale = 1
+        layer.alpha = 1
+        layer.drawSides = true -- draw duplicates on left and right
+        layer.drawVertical = true -- draw duplicates on top and bottom
+
+        -- Position of the layer perspective
+        layer.x = 0
+        layer.y = 0
+
+        -- Stores the position of the view in the previous frame
+        layer.oldViewX = 0
+        layer.oldViewY = 0
+
+        -- Relative position of the layer compared to the view position
+        layer.relX = 0
+        layer.relY = 0
+
+        -- Automatic background movement
+        layer.spoofX = 0
+        layer.spoofY = 0
+
+        -- Number of pixels the view position has to move before the layer moves
+        layer.speed = 3
+
+        -- Manual offset of the layer
+        layer.offX = 0
+        layer.offY = 0
+
+        if args then for k,v in pairs(args) do layer[k] = v end end
+
+        layer.baseWidth = layer.img:getWidth()
+        layer.width = layer.baseWidth * layer.scale
+        layer.baseHeight = layer.img:getHeight()
+        layer.height = layer.baseHeight * layer.scale
+
+        -- TODO: verify you can pass an anim8 anim, adjust above values for it
+
+        function layer:update(dt, x, y) -- calculate parallax positioning
+            local viewX, viewY = x, y
+            if not x then viewX = self.x end
+            if not y then viewY = self.y end
+
+            if layer.anim then layer.anim:update(dt) end
+
+            -- IMPORTANT, set layer.x and layer.y before spoofing viewX viewY
+            layer.x = viewX
+            layer.y = viewY
+
+            -- spoof is an automatic movement of the view position
+            viewX = viewX + layer.spoofX*dt
+            viewY = viewY + layer.spoofY*dt
+
+            local diffX = viewX - layer.oldViewX
+            local diffY = viewY - layer.oldViewY
+
+            if not layer.fixedX then layer.relX = layer.relX - (diffX / layer.speed) end
+            if not layer.fixedY then layer.relY = layer.relY - (diffY / layer.speed) end
+
+            if layer.relX < -1 * layer.baseWidth then layer.relX = layer.relX + layer.width end
+            if layer.relX > layer.baseWidth then layer.relX = layer.relX - layer.width end
+
+            if layer.relY < -1 * layer.height then layer.relY = layer.relY + layer.baseHeight * layer.scale end
+            if layer.relY > layer.height then layer.relY = layer.relY - layer.baseHeight * layer.scale end
+
+            layer.oldViewX = viewX
+            layer.oldViewY = viewY
+        end
+        
+        function layer:reset()
+            self.relX = 0
+            self.relY = 0
+            self.oldViewX = self.x
+            self.oldViewY = self.y
+        end
+        
+        function layer:draw()
+            local alph = self.alpha
+            local imgW = self.baseWidth * self.scale
+            local imgH = self.baseHeight * self.scale
+            love.graphics.setColor(1, 1, 1, alph)
+
+            for i=-1, 2 do
+                if self.drawVertical or i == 0 then
+                    love.graphics.draw(self.img, layer.x + (layer.relX * self.scale) + (layer.offX * self.scale) + (0 * imgW), layer.y + layer.relY + (layer.offY * self.scale) + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2)
+                    if self.drawSides then love.graphics.draw(self.img, layer.x + (layer.relX * self.scale) + (layer.offX * self.scale) + (1 * imgW), layer.y + layer.relY + (layer.offY * self.scale) + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2) end
+                    if self.drawSides then love.graphics.draw(self.img, layer.x + (layer.relX * self.scale) + (layer.offX * self.scale) + (-1 * imgW), layer.y + layer.relY + (layer.offY * self.scale) + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2) end
+                end
+            end      
+        end
+
+        table.insert(layers, layer)
+    end
+
+    function view:setPosition(x, y)
+        if x then view.x = x end
+        if y then view.y = y end
+        -- NOTE: layers will not be updated until view:update is called
+    end
+
+    function view:update(dt, x, y)
+        view:setPosition(x, y)
+        for i, layer in ipairs(view.layers) do
+            layer:update(dt, view.x, view.y)
+        end
+    end
+
+    function view:draw()
+        for i, layer in ipairs(view.layers) do
+            layer:draw()
+        end
+    end
+
+    function view:init(nld)
+        view:reset()
+        view:addLayerData(nld)
+
+        for i, ld in ipairs(view.layerData) do -- create all layers
+            local img = ld.img
+            ld.img = nil -- remove img from layer data
+            view:newLayer(img, ld)
+        end
+    end
+
+    if newLayerData then
+        view:init(newLayerData) -- initialize layer data
+    else
+        print("call view:init(newLayerData) to start the lookout view")
+    end
+
+    return view
+end
