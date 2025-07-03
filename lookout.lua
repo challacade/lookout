@@ -125,10 +125,20 @@ function lookout:newView(newLayerData)
         table.insert(layers, layer)
     end
 
+    function view:setScale(scale)
+        if not scale then return end
+        for i, layer in ipairs(view.layers) do
+            layer.scale = scale
+            layer.width = layer.baseWidth * layer.scale
+            layer.height = layer.baseHeight * layer.scale
+        end
+        -- NOTE: call view:update and view:draw to see the changes
+    end
+
     function view:setPosition(x, y)
         if x then view.x = x end
         if y then view.y = y end
-        -- NOTE: layers will not be updated until view:update is called
+        -- NOTE: call view:update and view:draw to see the changes
     end
 
     function view:update(dt, x, y)
