@@ -12,12 +12,15 @@ function lookout:create(newLayerData, args)
     look.spoofX = 0 -- automatic movement of the look position
     look.spoofY = 0
 
-    -- any additional properties you would like to set for the look
+    look.layers = {} -- initialize layers to avoid nil errors
+    look.layerData = {} -- initialize layerData as an empty table
+
+    -- any additional properties you would like to set for the lookout
     if args then for k, v in pairs(args) do look[k] = v end end
 
     function look:reset()
         look.layers = {}
-        look.layerData = nil
+        look.layerData = {}
     end
 
     function look:addLayerData(data)
@@ -25,7 +28,6 @@ function lookout:create(newLayerData, args)
         if type(data) ~= "table" then error("addLayerData parameter must be a table") end
         if next(data) == nil then error("addLayerData parameter cannot be an empty table") end
         if not data[1] then data = { data } end -- parameter is a single layer
-
         if not self.layerData then self.layerData = {} end
         for i, ld in ipairs(data) do table.insert(self.layerData, ld) end
     end
@@ -74,11 +76,10 @@ function lookout:create(newLayerData, args)
         -- TODO: verify you can pass an anim8 anim, adjust above values for it
 
         function layer:update(dt) -- calculate parallax positioning
-            if layer.anim then layer.anim:update(dt) end
-
+            if layer.anim and type(layer.anim.update) == "function" then layer.anim:update(dt) end
+        
             if layer.look.spoofX ~= 0 then layer.spoofX = layer.spoofX + layer.look.spoofX * dt end
             if layer.look.spoofY ~= 0 then layer.spoofY = layer.spoofY + layer.look.spoofY * dt end
-
             local vpx, vpy = layer.look:getPosition() -- get the look position
             layer.x, layer.y = vpx, vpy
 
@@ -114,14 +115,15 @@ function lookout:create(newLayerData, args)
             local imgH = self.baseHeight * self.scale
             love.graphics.setColor(1, 1, 1, alph)
 
-            for i=-1, 2 do
-                if self.drawVertical or i == 0 then
-                    local lx = layer.x + (layer.relX * self.scale) + (layer.offX * self.scale)
-                    local ly = layer.y + (layer.relY * self.scale) + (layer.offY * self.scale)
-
-                    love.graphics.draw(self.img, lx + (0 * imgW), ly + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2)
-                    if self.drawSides then love.graphics.draw(self.img, lx + (1 * imgW), ly + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2) end
-                    if self.drawSides then love.graphics.draw(self.img, lx + (-1 * imgW), ly + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2) end
+            for i=-1, 1 do
+                for j=-1, 1 do
+                    if self.drawVertical or i == 0 then
+                        if self.drawSides or j == 0 then
+                            local lx = self.x + (self.relX * self.scale) + (self.offX * self.scale)
+                            local ly = self.y + (self.relY * self.scale) + (self.offY * self.scale)
+                            love.graphics.draw(self.img, lx + (j * imgW), ly + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2)
+                        end
+                    end
                 end
             end      
         end
@@ -179,7 +181,6 @@ function lookout:create(newLayerData, args)
 
         for i, ld in ipairs(look.layerData) do -- create all layers
             local img = ld.img
-            ld.img = nil -- remove img from layer data
             look:newLayer(img, ld)
         end
     end
@@ -187,7 +188,7 @@ function lookout:create(newLayerData, args)
     if newLayerData then
         look:init(newLayerData) -- initialize layer data
     else
-        print("call look:init(newLayerData) to start")
+        print("[Lookout] Initialization required: call look:init(newLayerData) to start parallax layers.")
     end
 
     return look

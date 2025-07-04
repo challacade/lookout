@@ -23,7 +23,9 @@ function love.update(dt)
     local dirX, dirY = getDirFromKeyboard()
 
     -- using the keyboard input, we can set the spoof direction of the lookout
-    if dirX ~= 0 or dirY ~= 0 then look:setSpoofDir(dirX * mag, dirY * mag) end
+    if dirX ~= 0 or dirY ~= 0 then
+        look:setSpoofDir(dirX * mag, dirY * mag)
+    end
 
     local centerX, centerY = love.graphics.getWidth()/2, love.graphics.getHeight()/2
     look:update(dt, centerX, centerY) -- lookout position is the center of the screen
