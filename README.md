@@ -1,10 +1,10 @@
 https://github.com/user-attachments/assets/87a053a1-2975-4981-8370-159b896c3760
 
-Parallax logic with multiple moving layers, written in Lua✨
+Parallax logic with multiple repeating layers for Love2D.
 
 Using a list of layers (images), Lookout is able to calculate the individual movement positions based on each layer's depth, along with the viewpoint position.
 
-```
+```lua
 local lookout = require("lookout")
 
 local layerData = {
@@ -13,9 +13,9 @@ local layerData = {
     { img = images.near, depth = 2 }
 }
 
-look = lookout:create(layerData, {spoofX = 1000})
+local look = lookout:create(layerData, { spoofX = 1000 })
 ```
-```
+```lua
 -- put in the update loop
 look:update(dt, cameraX, cameraY)
 
@@ -23,6 +23,19 @@ look:update(dt, cameraX, cameraY)
 look:draw()
 ```
 
-You can assign a 'spoof' direction, which means the lookout will automatically offset (travel) over time based on the spoofX & spoofY properties.
+`spoofX` and `spoofY` automatically offset layers over time. They can also be changed at runtime with `look:setSpoofDir(x, y)`.
 
-To use Lookout, you can include this entire project, or copy/paste lookout.lua directly into your codebase. See main.lua for an example of how a parallax view can be created for a Love2D project. The inline comments walk through every step of the process.
+## Options
+
+Pass these options as the second argument to `lookout:create(layerData, args)`:
+
+- `scale`: Default scale for all layers. A layer can override it with its own `scale` value.
+- `spoofX`, `spoofY`: Automatic movement in pixels per second.
+- `drawSides`, `drawVertical`: Whether layers repeat horizontally and vertically. Both default to `true`.
+- `fixedX`, `fixedY`: Make all layers fixed on an axis by default. A layer can override either flag.
+
+Each layer requires `img` and accepts `depth` (default `3`), `scale`, `alpha`, `offX`, `offY`, `spoofX`, `spoofY`, `drawSides`, `drawVertical`, `fixedX`, and `fixedY`.
+
+Call `look:setScale(scale)` to update the scale of existing layers.
+
+You can include this entire project as a runnable Love2D example, copy `lookout.lua` directly into a project, or use `init.lua` as the module entry point. See `main.lua` for the complete Love2D example.

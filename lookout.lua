@@ -1,7 +1,7 @@
 local lookout = {
     _LICENSE = "This software is distributed under the MIT license. See LICENSE for details.",
     _URL = "https://github.com/challacade/lookout",
-    _VERSION = "1.0.0",
+    _VERSION = "1.1.0",
     _DESCRIPTION = "Parallax logic with multiple moving layers",
 }
 
@@ -11,6 +11,8 @@ function lookout:create(newLayerData, args)
     look.y = 0
     look.spoofX = 0 -- automatic movement of the look position
     look.spoofY = 0
+    look.drawSides = true -- draw duplicates on left and right
+    look.drawVertical = true -- draw duplicates on top and bottom
 
     look.layers = {} -- initialize layers to avoid nil errors
     look.layerData = {} -- initialize layerData as an empty table
@@ -41,10 +43,10 @@ function lookout:create(newLayerData, args)
         layer.img = img -- image to draw
         layer.x = 0 -- position of the layer, call update to set properly
         layer.y = 0 -- position of the layer
-        layer.scale = 1
+        layer.scale = self.scale or 1 -- scale of the layer
         layer.alpha = 1
-        layer.drawSides = true -- draw duplicates on left and right
-        layer.drawVertical = true -- draw duplicates on top and bottom
+        layer.drawSides = look.drawSides -- draw duplicates on left and right
+        layer.drawVertical = look.drawVertical -- draw duplicates on top and bottom
         layer.look = look -- reference to the look this layer belongs to
 
         -- Stores the position from the previous frame
@@ -65,6 +67,9 @@ function lookout:create(newLayerData, args)
         -- automatic movement of the layer
         layer.spoofX = 0
         layer.spoofY = 0
+
+        layer.fixedX = look.fixedX or false -- if true, the layer will not move horizontally
+        layer.fixedY = look.fixedY or false -- if true, the layer will not move vertically
 
         if args then for k,v in pairs(args) do layer[k] = v end end
 
@@ -92,11 +97,12 @@ function lookout:create(newLayerData, args)
             if not layer.fixedX then layer.relX = layer.relX - (diffX / layer.depth) end
             if not layer.fixedY then layer.relY = layer.relY - (diffY / layer.depth) end
 
-            if layer.relX < -1 * layer.width then layer.relX = layer.relX + layer.width end
-            if layer.relX > layer.width then layer.relX = layer.relX - layer.width end
+            -- relX and relY are stored before scale is applied during drawing.
+            if layer.relX < -1 * layer.baseWidth then layer.relX = layer.relX + layer.baseWidth end
+            if layer.relX > layer.baseWidth then layer.relX = layer.relX - layer.baseWidth end
 
-            if layer.relY < -1 * layer.height then layer.relY = layer.relY + layer.height end
-            if layer.relY > layer.height then layer.relY = layer.relY - layer.height end
+            if layer.relY < -1 * layer.baseHeight then layer.relY = layer.relY + layer.baseHeight end
+            if layer.relY > layer.baseHeight then layer.relY = layer.relY - layer.baseHeight end
 
             layer.oldLookX = vpx
             layer.oldLookY = vpy
@@ -121,7 +127,7 @@ function lookout:create(newLayerData, args)
                         if self.drawSides or j == 0 then
                             local lx = self.x + (self.relX * self.scale) + (self.offX * self.scale)
                             local ly = self.y + (self.relY * self.scale) + (self.offY * self.scale)
-                            love.graphics.draw(self.img, lx + (j * imgW), ly + (i * imgH), nil, self.scale, nil, self.width/2, self.height/2)
+                            love.graphics.draw(self.img, lx + (j * imgW), ly + (i * imgH), nil, self.scale, self.scale, self.baseWidth/2, self.baseHeight/2)
                         end
                     end
                 end
